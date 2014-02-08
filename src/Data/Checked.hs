@@ -13,6 +13,7 @@ module Data.Checked
   , maybeHolds
   , holds
   , check
+  , checkAnd
   , I
   , U
   , Not
@@ -102,6 +103,13 @@ check :: Checkable c => Property p v -> v -> Maybe (c p v)
 check p v | holds p v = Just (checkable v)
           | otherwise = Nothing
 {-# INLINABLE check #-}
+
+-- | Add "and property" to the checked value if the property holds
+checkAnd :: Checkable c => Property p2 v
+    -> c p1 v
+    -> Maybe (c (I p1 p2) v)
+checkAnd p v | holds p (checked v) = Just (checkable . checked $ v)
+             | otherwise = Nothing
 
 -- | Property intersection
 newtype I p1 p2 = I (p1, p2)
