@@ -1,8 +1,12 @@
 -- | Type-indexed runtime-checked properties.
 module Data.Checked
   ( Checked
+  , Checked'
+  , trustMe
+  , untrust
   , trustThat
   , preserving
+  , preserving'
   , checked
   , Property
   , property
@@ -20,6 +24,8 @@ module Data.Checked
   , commute
   , associateL
   , associateR
+  , construct
+  , deconstruct
   ) where
 
 import Control.DeepSeq (NFData(..))
@@ -27,23 +33,54 @@ import Control.DeepSeq (NFData(..))
 -- | Wrapper-evidence for property /p/.
 newtype Checked p v = Checked v
 
+-- | Trusted evidence for property /p/.
+newtype Checked' p v = Checked' v
+
 instance NFData v => NFData (Checked p v) where
   rnf (Checked v) = rnf v
 
+instance NFData v => NFData (Checked' p v) where
+  rnf (Checked' v) = rnf v
+
+class Checkable c where
+    checkable :: v -> c p v
+    -- | Unwrap the checked value.
+    checked :: c p v -> v
+
+instance Checkable Checked where
+    checkable = Checked
+    checked (Checked v) = v
+    {-# INLINE checked #-}
+
+instance Checkable Checked' where
+    checkable = Checked'
+    checked (Checked' v) = v
+    {-# INLINE checked #-}
+
 -- | Use when the property can be deduced without a runtime check.
-trustThat :: p -> v -> Checked p v
-trustThat _ = Checked
+trustMe :: v -> Checked p v
+trustMe = Checked
+
+-- | Demote a trusted checked value to an untrusted checked value
+untrust :: Checked' p v -> Checked p v
+untrust (Checked' v) = Checked v
+{-# INLINE untrust #-}
+
+-- | Use when the property can be deduced without a runtime check.
+trustThat :: Checkable c => p -> v -> c p v
+trustThat _ = checkable
 {-# INLINE trustThat #-}
 
 -- | Apply a fuction that preserves the property to the checked value.
-preserving :: p -> (v -> v) -> Checked p v -> Checked p v
-preserving _ f (Checked v) = Checked (f v)
+preserving :: (v -> v) -> Checked p v -> Checked p v
+preserving f c = checkable (f (checked c))
 {-# INLINE preserving #-}
 
--- | Unwrap the checked value.
-checked :: Checked p v -> v
-checked (Checked v) = v
-{-# INLINE checked #-}
+-- | Apply a fuction that preserves the property to the (possibly
+-- trusted) checked value.
+preserving' :: Checkable c => p -> (v -> v) -> c p v -> c p v
+preserving' _ f c = checkable (f (checked c))
+{-# INLINE preserving' #-}
 
 newtype Property p v = Property {
   -- | Test if the property holds for the given value.
@@ -61,8 +98,8 @@ maybeHolds p v | holds p v = Just v
 {-# INLINABLE maybeHolds #-}
 
 -- | Wrap the value if the property holds.
-check :: Property p v -> v -> Maybe (Checked p v)
-check p v | holds p v = Just (Checked v)
+check :: Checkable c => Property p v -> v -> Maybe (c p v)
+check p v | holds p v = Just (checkable v)
           | otherwise = Nothing
 {-# INLINABLE check #-}
 
@@ -108,13 +145,24 @@ instance Logical I where
 instance Logical U where
     logic = id
 
-commute :: Logical l => Checked (l p1 p2) v -> Checked (l p2 p1) v
-commute = Checked . checked
+commute :: (Checkable c, Logical l) => c (l p1 p2) v -> c (l p2 p1) v
+commute = checkable . checked
+{-# INLINE commute #-}
 
-associateL :: Logical l => Checked (l p1 (l p2 p3)) v
+associateL :: (Checkable c, Logical l) => c (l p1 (l p2 p3)) v
     -> Checked (l (l p1 p2) p3) v
-associateL = Checked . checked
+associateL = checkable . checked
+{-# INLINE associateL #-}
 
-associateR :: Logical l => Checked (l (l p1 p2) p3) v
-    -> Checked (l p1 (l p2 p3)) v
-associateR = Checked . checked
+associateR :: (Checkable c, Logical l) => c (l (l p1 p2) p3) v
+    -> c (l p1 (l p2 p3)) v
+associateR = checkable . checked
+{-# INLINE associateR #-}
+
+construct :: Checkable c => c p1 v -> c (U p1 p2) v
+construct = checkable . checked
+{-# INLINE construct #-}
+
+deconstruct :: Checkable c => c (I p1 p2) v -> c p1 v
+deconstruct = checkable . checked
+{-# INLINE deconstruct #-}
