@@ -22,14 +22,14 @@ data Even = Even
 isEven :: Integral n => Property Even n
 isEven = property Even even
 
-showEven :: Show n => Checked Even n -> String
+showEven :: Show n => Checked' Even n -> String
 showEven = show . checked
 
-double :: Integral n => n -> Checked Even n
+double :: Integral n => n -> Checked' Even n
 double n = trustThat Even (n * 2)
 
-timesEven :: Integral n => n -> Checked Even n -> Checked Even n
-timesEven a = preserving Even (*a)
+timesEven :: Integral n => n -> Checked' Even n -> Checked' Even n
+timesEven a = preserving' Even (*a)
 ```
 
 A client importing Evens can only construct a Checked Even by using
@@ -48,10 +48,10 @@ data Small = Small
 small :: (Num n, Ord n) => Property Small n
 small = property Small (<100)
 
-showSmallEven :: Show n => Checked (I Small Even) n -> String
+showSmallEven :: Show n => Checked' (I Small Even) n -> String
 showSmallEven = show . checked
 
-showSmallOrEven :: Show n => Checked (U Small Even) n -> String
+showSmallOrEven :: Show n => Checked' (U Small Even) n -> String
 showSmallOrEven = show . checked
 ```
 
