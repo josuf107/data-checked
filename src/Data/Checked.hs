@@ -69,7 +69,7 @@ untrust (Checked' v) = Checked v
 
 -- | Use when the property can be deduced without a runtime check.
 trustThat :: Checkable c => p -> v -> c p v
-trustThat _ = checkable
+trustThat p = p `seq` checkable
 {-# INLINE trustThat #-}
 
 -- | Apply a fuction that preserves the property to the checked value.
@@ -80,7 +80,7 @@ preserving f c = checkable (f (checked c))
 -- | Apply a fuction that preserves the property to the (possibly
 -- trusted) checked value.
 preserving' :: Checkable c => p -> (v -> v) -> c p v -> c p v
-preserving' _ f c = checkable (f (checked c))
+preserving' p f c = p `seq` checkable (f (checked c))
 {-# INLINE preserving' #-}
 
 newtype Property p v = Property {
@@ -89,7 +89,7 @@ newtype Property p v = Property {
     holds :: v -> Bool }
 
 property :: p -> (v -> Bool) -> Property p v
-property _ = Property
+property p = p `seq` Property
 {-# INLINABLE property #-}
 
 -- | Return 'Just' /v/ if /p/ holds and 'Nothing' overwise.
